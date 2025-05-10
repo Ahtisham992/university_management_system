@@ -1,0 +1,28 @@
+University-Management-System/
+|__app/
+    ├── backend/
+    │   ├── controllers/
+    │   ├── models/
+    │   ├── routes/
+    │   ├── index.js
+    │   ├── package.json
+    │   ├── .env
+    │   ├── .gitignore
+    ├── frontend/
+    │   ├── public/
+    │   ├── src/
+    │   │   ├── assets/
+    │   │   ├── components/
+    │   │   ├── pages/
+    │   │   │   ├── admin/
+    │   │   │   ├── student/
+    │   │   │   ├── teacher/
+    │   │   ├── redux/
+    │   │   ├── App.js
+    │   │   ├── index.js
+    │   │   ├── store.js
+    │   │   ├── package.json
+    │   │   ├── .gitignore
+    │   ├── .gitignore
+    │   ├── package.json
+│   ├── README.md

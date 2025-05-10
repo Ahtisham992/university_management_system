@@ -1,0 +1,23 @@
+# Ignore all node_modules folders in any subdirectories
+**/node_modules/
+
+# Ignore all npm debug log files
+**/npm-debug.log
+
+# Ignore all build folders in any subdirectories
+**/build/
+
+# Ignore all .git folders
+**/.git/
+
+# Ignore all .env files
+**/.env
+
+# Ignore all .DS_Store files (macOS system files)
+**/.DS_Store
+
+# Ignore all .gitignore files
+**/.gitignore
+
+# Ignore all README.md files
+**/README.md
