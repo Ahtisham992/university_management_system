@@ -87,14 +87,14 @@ cd University-management-system
    npm start
    ```
 
-   The frontend application should now be running on `http://localhost:3000`.
+   The frontend application should now be running on `http://localhost:5000`.
 
 ## Usage
 
-- **Admin Login**: Navigate to `http://localhost:3000/Adminlogin` to access the admin login page.
-- **Teacher Login**: Navigate to `http://localhost:3000/Teacherlogin` to access the teacher login page.
-- **Student Login**: Navigate to `http://localhost:3000/Studentlogin` to access the student login page.
-- **Admin Registration**: Admins can register at `http://localhost:3000/adminregister`.
+- **Admin Login**: Navigate to `http://localhost:5000/Adminlogin` to access the admin login page.
+- **Teacher Login**: Navigate to `http://localhost:5000/Teacherlogin` to access the teacher login page.
+- **Student Login**: Navigate to `http://localhost:5000/Studentlogin` to access the student login page.
+- **Admin Registration**: Admins can register at `http://localhost:5000/adminregister`.
 
 ## Project Structure
 
@@ -133,6 +133,28 @@ cd University-management-system
   ```bash
   npm run build
   ```
+
+Containerization (Docker Support ✅)
+The application now supports containerization via Docker and Docker Compose.
+
+How to Test Your Updated Configuration
+Rebuild your Docker images:
+
+   docker-compose build
+
+Run your containers:
+
+   docker-compose up
+
+If you want to use the combined image, rebuild it manually:
+
+   docker build -t university-management-system:latest .
+
+Run the application with the following command:
+
+   docker run -p 5000:5000 -p 3000:3000-e STRIPE_SECRET_KEY="sk_test_placeholder" -e MONGODB_URI="mongodb+srv://shamimuhammad77:helloAhtisham@cluster1.yvtj5.mongodb.net/UMS?retryWrites=true&w=majority&appName=Cluster0" -e JWT_SECRET="your_secure_jwt_secret" university-management-system:latest
+
+
 
 ## Dependencies
 
