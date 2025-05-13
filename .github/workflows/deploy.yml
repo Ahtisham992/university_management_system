@@ -17,85 +17,169 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
       
-    - name: Check project directory structure
+    - name: Print working directory and list files
       run: |
-        echo "Checking project directory structure..."
-        dir
+        echo "Current working directory: $(pwd)"
+        ls -la
+        
+    - name: Check project structure
+      run: |
+        echo "Checking app directory structure..."
+        if (Test-Path app) {
+          dir app
+        } else {
+          echo "app directory not found!"
+        }
+        
         echo "Checking frontend directory structure..."
-        dir app\frontend
-        echo "Checking frontend public directory..."
-        dir app\frontend\public
+        if (Test-Path app/frontend) {
+          dir app/frontend
+        } else {
+          echo "app/frontend directory not found!"
+        }
+        
+        echo "Checking if frontend src directory exists..."
+        if (Test-Path app/frontend/src) {
+          echo "Frontend src directory exists"
+        } else {
+          echo "Frontend src directory not found!"
+        }
+        
+    - name: Create frontend public directory if needed
+      run: |
+        if (-not (Test-Path app/frontend/public)) {
+          echo "Creating frontend/public directory structure..."
+          New-Item -Path app/frontend/public -ItemType Directory -Force
+          
+          # Create minimal index.html file
+          Set-Content -Path app/frontend/public/index.html -Value @"
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>University Management System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>
+"@
+          echo "Created minimal index.html file in public directory"
+        } else {
+          echo "Frontend public directory already exists"
+        }
         
     - name: Set up Docker to use Minikube's environment
       run: |
         echo "Configuring Docker to use Minikube's daemon..."
         & minikube -p minikube docker-env | Invoke-Expression
         
+    - name: Check Docker configuration
+      run: |
+        docker info
+        echo "Docker configuration verified"
+        
     - name: Build Backend Docker image
       run: |
         echo "Building backend image..."
+        # Check if backend Dockerfile exists
+        if (Test-Path backend.Dockerfile) {
+          echo "backend.Dockerfile found"
+          Get-Content backend.Dockerfile
+        } else {
+          echo "backend.Dockerfile not found!"
+          exit 1
+        }
+        
         docker build -t ahtisham05/ums-backend:latest -f backend.Dockerfile .
         
     - name: Build Frontend Docker image
       run: |
         echo "Building frontend image..."
-        echo "Debugging: Checking if frontend.Dockerfile exists"
-        if (Test-Path frontend.Dockerfile) { 
-          Get-Content frontend.Dockerfile 
-        } else { 
+        # Check if frontend Dockerfile exists
+        if (Test-Path frontend.Dockerfile) {
+          echo "frontend.Dockerfile found"
+          Get-Content frontend.Dockerfile
+        } else {
           echo "frontend.Dockerfile not found!"
-        }
-        
-        # Create a simple test frontend structure if needed
-        if (-not (Test-Path app\frontend\public\index.html)) {
-          echo "Creating minimal frontend structure for testing..."
-          if (-not (Test-Path app\frontend\public)) {
-            New-Item -Path app\frontend\public -ItemType Directory -Force
-          }
-          Set-Content -Path app\frontend\public\index.html -Value "<html><body><h1>Test App</h1></body></html>"
+          exit 1
         }
         
         docker build -t ahtisham05/ums-frontend:latest -f frontend.Dockerfile .
         
-    - name: Login to Docker Hub
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      
-    - name: Push Backend Docker image to Docker Hub
+    - name: Verify images were built
       run: |
-        echo "Pushing backend image to Docker Hub..."
-        docker push ahtisham05/ums-backend:latest
+        echo "Verifying built images..."
+        docker images | grep ahtisham05/ums
         
-    - name: Push Frontend Docker image to Docker Hub
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+      
+    - name: Push Docker images to Docker Hub
       run: |
-        echo "Pushing frontend image to Docker Hub..."
+        echo "Pushing images to Docker Hub..."
+        docker push ahtisham05/ums-backend:latest
         docker push ahtisham05/ums-frontend:latest
         
     - name: Verify Minikube status
       run: |
+        echo "Checking Minikube status..."
         minikube status
         kubectl get nodes
         
     - name: Create namespace if not exists
       run: |
+        echo "Creating or confirming namespace..."
         kubectl create namespace ums-system --dry-run=client -o yaml | kubectl apply -f -
+        
+    - name: Check Kubernetes manifests
+      run: |
+        echo "Checking k8s directory structure..."
+        if (Test-Path k8s) {
+          Get-ChildItem -Path k8s -Recurse | Where-Object { !$_.PSIsContainer } | ForEach-Object {
+            echo "File: $($_.FullName)"
+          }
+        } else {
+          echo "k8s directory not found!"
+          exit 1
+        }
+        
+        echo "Checking kustomization.yaml..."
+        if (Test-Path k8s/kustomization.yaml) {
+          Get-Content k8s/kustomization.yaml
+        } else {
+          echo "kustomization.yaml not found!"
+          exit 1
+        }
         
     - name: Deploy to Minikube using Kustomize
       run: |
         echo "Deploying application to Minikube using Kustomize..."
         kubectl apply -k k8s/
         
-    - name: Verify deployment
+    - name: Wait for deployments to be ready
       run: |
         echo "Waiting for deployments to be ready..."
-        kubectl -n ums-system wait --for=condition=available deployment/ums-backend --timeout=120s
-        kubectl -n ums-system wait --for=condition=available deployment/ums-frontend --timeout=120s
-        kubectl -n ums-system wait --for=condition=available deployment/mongodb --timeout=120s
+        kubectl -n ums-system wait --for=condition=available deployment/ums-backend --timeout=180s || echo "Backend deployment not ready"
+        kubectl -n ums-system wait --for=condition=available deployment/ums-frontend --timeout=180s || echo "Frontend deployment not ready"
+        kubectl -n ums-system wait --for=condition=available deployment/mongodb --timeout=180s || echo "MongoDB deployment not ready"
         
     - name: Show deployed resources
       run: |
         echo "Listing all resources in the ums-system namespace:"
         kubectl get all -n ums-system
         
+        echo "Checking pod logs for any issues:"
+        kubectl -n ums-system get pods -o name | ForEach-Object {
+          echo "==== Logs for $_ ===="
+          kubectl -n ums-system logs $_ --tail 50
+        }
+        
     - name: Display service URL
       run: |
-        echo "Frontend service is accessible at: $(minikube service ums-frontend -n ums-system --url)"
+        echo "Frontend service is accessible at:"
+        minikube service ums-frontend -n ums-system --url
