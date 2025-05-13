@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ums-frontend
+  labels:
+    app: ums-frontend
+spec:
+  replicas: 1  # Reduced to 1 for easier troubleshooting
+  selector:
+    matchLabels:
+      app: ums-frontend
+  template:
+    metadata:
+      labels:
+        app: ums-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ahtisham05/university-management-system-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        - name: REACT_APP_BASE_URL  # This is the key environment variable
+          value: "http://ums-backend.ums-system.svc.cluster.local:3000"  # Use fully qualified service name
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"

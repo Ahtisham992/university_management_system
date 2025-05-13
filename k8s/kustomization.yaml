@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ums-system
+
+resources:
+  # MongoDB resources
+  - mongodb/secrets.yaml
+  - mongodb/persistent-volume-claim.yaml
+  - mongodb/deployment.yaml
+  - mongodb/service.yaml
+  
+  # Backend resources
+  - backend/secrets.yaml
+  - backend/deployment.yaml
+  - backend/service.yaml
+  
+  # Frontend resources
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  
+  # Application configuration
+  - configmap.yaml

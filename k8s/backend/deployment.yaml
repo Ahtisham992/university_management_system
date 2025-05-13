@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ums-backend
+  labels:
+    app: ums-backend
+spec:
+  replicas: 1  # Reduced to 1 for easier troubleshooting
+  selector:
+    matchLabels:
+      app: ums-backend
+  template:
+    metadata:
+      labels:
+        app: ums-backend
+    spec:
+      containers:
+      - name: backend
+        image: ahtisham05/university-management-system-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MONGODB_URI
+          value: "mongodb://shamimuhammad77:helloAhtisham@mongodb:27017/UMS?retryWrites=true&w=majority"
+        - name: JWT_SECRET
+          value: "your_jwt_secret"
+        - name: STRIPE_SECRET_KEY
+          value: "sk_test_placeholder"
+        - name: PORT
+          value: "3000"
+        - name: NODE_ENV
+          value: "production"
+        - name: CORS_ORIGINS
+          value: "http://localhost:5000,http://127.0.0.1:56247,http://localhost:3000,http://ums-frontend,http://ums-frontend:80"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

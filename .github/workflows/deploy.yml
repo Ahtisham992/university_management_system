@@ -1,0 +1,75 @@
+name: Build and Deploy to Minikube
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-deploy:
+    runs-on: self-hosted
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Docker to use Minikube's environment
+      run: |
+        echo "Configuring Docker to use Minikube's daemon..."
+        eval $(minikube docker-env)
+        
+    - name: Build Backend Docker image
+      run: |
+        echo "Building backend image..."
+        docker build -t ahtisham05/ums-backend:latest -f backend.Dockerfile .
+        
+    - name: Build Frontend Docker image
+      run: |
+        echo "Building frontend image..."
+        docker build -t ahtisham05/ums-frontend:latest -f frontend.Dockerfile .
+        
+    - name: Login to Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      
+    - name: Push Backend Docker image to Docker Hub
+      run: |
+        echo "Pushing backend image to Docker Hub..."
+        docker push ahtisham05/ums-backend:latest
+        
+    - name: Push Frontend Docker image to Docker Hub
+      run: |
+        echo "Pushing frontend image to Docker Hub..."
+        docker push ahtisham05/ums-frontend:latest
+        
+    - name: Verify Minikube status
+      run: |
+        minikube status
+        kubectl get nodes
+        
+    - name: Create namespace if not exists
+      run: |
+        kubectl create namespace ums-system --dry-run=client -o yaml | kubectl apply -f -
+        
+    - name: Deploy to Minikube using Kustomize
+      run: |
+        echo "Deploying application to Minikube using Kustomize..."
+        kubectl apply -k k8s/
+        
+    - name: Verify deployment
+      run: |
+        echo "Waiting for deployments to be ready..."
+        kubectl -n ums-system wait --for=condition=available deployment/ums-backend --timeout=120s
+        kubectl -n ums-system wait --for=condition=available deployment/ums-frontend --timeout=120s
+        kubectl -n ums-system wait --for=condition=available deployment/mongodb --timeout=120s
+        
+    - name: Show deployed resources
+      run: |
+        echo "Listing all resources in the ums-system namespace:"
+        kubectl get all -n ums-system
+        
+    - name: Display service URL
+      run: |
+        echo "Frontend service is accessible at: $(minikube service ums-frontend -n ums-system --url)"

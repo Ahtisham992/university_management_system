@@ -1,10 +1,9 @@
-const express = require("express")
-const cors = require("cors")
-const mongoose = require("mongoose")
-const dotenv = require("dotenv")
-// const bodyParser = require("body-parser")
-const app = express()
-const Routes = require("./routes/route.js")
+const express = require("express");
+const cors = require("cors");
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
+const app = express();
+const Routes = require("./routes/route.js");
 
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
@@ -24,39 +23,46 @@ const quizRoutes = require('./routes/quizRoutes');
 const quizAssessmentRoutes = require('./routes/quizAssessmentRoutes');
 const scholarshipRoutes = require('./routes/scholarshipRoutes');
 
+// Load environment variables
+dotenv.config();
 
-const PORT =3000;
+const PORT = 3000;
 
-// CORS Configuration
+// CORS Configuration - Allow all origins
+// This configuration accepts connections from any frontend
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5000',
+  origin: '*', // Allow all origins
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-app.use(cors(corsOptions));
-dotenv.config();
-
+// Request logger middleware
 app.use((req, res, next) => {
   console.log({ method: req.method, path: req.url });
   next();
 });
 
+// Apply middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(cors(corsOptions));
 
-// app.use(bodyParser.json({ limit: '10mb', extended: true }))
-// app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }))
+// Define database connection
+const connectToDatabase = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("Connected to MongoDB");
+    return true;
+  } catch (err) {
+    console.log("MongoDB connection error:", err);
+    return false;
+  }
+};
 
-app.use(express.json({ limit: '10mb' }))
-app.use(cors());
-
-
-
-mongoose.connect(process.env.MONGODB_URI)
-    .then(console.log("Connected to MongoDB"))
-    .catch((err) => console.log("NOT CONNECTED TO NETWORK", err))
-
-
-
+// API routes
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/course', courseRoutes);
@@ -73,33 +79,13 @@ app.use('/api/communication', communicationRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/quizAssessment', quizAssessmentRoutes);
 app.use('/api/grading', gradingRoutes);
-
-
 app.use('/', Routes);
 
-let isConnected = false;
-
-const connectToDatabase = async () => {
-    if (isConnected) {
-        return;
-    }
-
-    try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
-        isConnected = true;
-        console.log("Connected to MongoDB");
-    } catch (err) {
-        console.log("MongoDB connection error:", err);
-    }
-};
-
-connectToDatabase();
-
-// module.exports.handler = serverless(app);
-
-app.listen(PORT, () => {
-    console.log(`Server started at port no. ${PORT}`)
-})
+// Connect to database and start server
+(async () => {
+  const isConnected = await connectToDatabase();
+  
+  app.listen(PORT, () => {
+    console.log(`Server started at port ${PORT}`);
+  });
+})();
