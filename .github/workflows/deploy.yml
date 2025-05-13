@@ -2,12 +2,10 @@ name: Build and Deploy to Minikube
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:  # Allow manual triggering
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-deploy:
@@ -17,42 +15,44 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
       
-    - name: Print working directory and list files
+    - name: Print working directory
+      shell: pwsh
       run: |
-        echo "Current working directory: $(pwd)"
-        ls -la
+        Write-Output "Current working directory: $(Get-Location)"
+        Get-ChildItem -Force
         
     - name: Check project structure
+      shell: pwsh
       run: |
-        echo "Checking app directory structure..."
+        Write-Output "Checking app directory structure..."
         if (Test-Path app) {
-          dir app
+          Get-ChildItem app
         } else {
-          echo "app directory not found!"
+          Write-Output "app directory not found!"
         }
         
-        echo "Checking frontend directory structure..."
+        Write-Output "Checking frontend directory structure..."
         if (Test-Path app/frontend) {
-          dir app/frontend
+          Get-ChildItem app/frontend
         } else {
-          echo "app/frontend directory not found!"
+          Write-Output "app/frontend directory not found!"
         }
         
-        echo "Checking if frontend src directory exists..."
+        Write-Output "Checking if frontend src directory exists..."
         if (Test-Path app/frontend/src) {
-          echo "Frontend src directory exists"
+          Write-Output "Frontend src directory exists"
         } else {
-          echo "Frontend src directory not found!"
+          Write-Output "Frontend src directory not found!"
         }
         
     - name: Create frontend public directory if needed
+      shell: pwsh
       run: |
         if (-not (Test-Path app/frontend/public)) {
-          echo "Creating frontend/public directory structure..."
+          Write-Output "Creating frontend/public directory structure..."
           New-Item -Path app/frontend/public -ItemType Directory -Force
           
-          # Create minimal index.html file
-          Set-Content -Path app/frontend/public/index.html -Value @"
+          $content = @"
 <!DOCTYPE html>
 <html>
 <head>
@@ -65,53 +65,57 @@ jobs:
 </body>
 </html>
 "@
-          echo "Created minimal index.html file in public directory"
+          Set-Content -Path app/frontend/public/index.html -Value $content
+          Write-Output "Created minimal index.html file in public directory"
         } else {
-          echo "Frontend public directory already exists"
+          Write-Output "Frontend public directory already exists"
         }
         
-    - name: Set up Docker to use Minikube's environment
+    - name: Set up Docker with Minikube
+      shell: pwsh
       run: |
-        echo "Configuring Docker to use Minikube's daemon..."
+        Write-Output "Configuring Docker to use Minikube's daemon..."
         & minikube -p minikube docker-env | Invoke-Expression
         
     - name: Check Docker configuration
+      shell: pwsh
       run: |
         docker info
-        echo "Docker configuration verified"
+        Write-Output "Docker configuration verified"
         
     - name: Build Backend Docker image
+      shell: pwsh
       run: |
-        echo "Building backend image..."
-        # Check if backend Dockerfile exists
+        Write-Output "Building backend image..."
         if (Test-Path backend.Dockerfile) {
-          echo "backend.Dockerfile found"
+          Write-Output "backend.Dockerfile found"
           Get-Content backend.Dockerfile
         } else {
-          echo "backend.Dockerfile not found!"
+          Write-Output "backend.Dockerfile not found!"
           exit 1
         }
         
         docker build -t ahtisham05/ums-backend:latest -f backend.Dockerfile .
         
     - name: Build Frontend Docker image
+      shell: pwsh
       run: |
-        echo "Building frontend image..."
-        # Check if frontend Dockerfile exists
+        Write-Output "Building frontend image..."
         if (Test-Path frontend.Dockerfile) {
-          echo "frontend.Dockerfile found"
+          Write-Output "frontend.Dockerfile found"
           Get-Content frontend.Dockerfile
         } else {
-          echo "frontend.Dockerfile not found!"
+          Write-Output "frontend.Dockerfile not found!"
           exit 1
         }
         
         docker build -t ahtisham05/ums-frontend:latest -f frontend.Dockerfile .
         
     - name: Verify images were built
+      shell: pwsh
       run: |
-        echo "Verifying built images..."
-        docker images | grep ahtisham05/ums
+        Write-Output "Verifying built images..."
+        docker images
         
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -120,66 +124,89 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
       
     - name: Push Docker images to Docker Hub
+      shell: pwsh
       run: |
-        echo "Pushing images to Docker Hub..."
+        Write-Output "Pushing images to Docker Hub..."
         docker push ahtisham05/ums-backend:latest
         docker push ahtisham05/ums-frontend:latest
         
     - name: Verify Minikube status
+      shell: pwsh
       run: |
-        echo "Checking Minikube status..."
+        Write-Output "Checking Minikube status..."
         minikube status
         kubectl get nodes
         
     - name: Create namespace if not exists
+      shell: pwsh
       run: |
-        echo "Creating or confirming namespace..."
+        Write-Output "Creating or confirming namespace..."
         kubectl create namespace ums-system --dry-run=client -o yaml | kubectl apply -f -
         
     - name: Check Kubernetes manifests
+      shell: pwsh
       run: |
-        echo "Checking k8s directory structure..."
+        Write-Output "Checking k8s directory structure..."
         if (Test-Path k8s) {
           Get-ChildItem -Path k8s -Recurse | Where-Object { !$_.PSIsContainer } | ForEach-Object {
-            echo "File: $($_.FullName)"
+            Write-Output "File: $($_.FullName)"
           }
         } else {
-          echo "k8s directory not found!"
+          Write-Output "k8s directory not found!"
           exit 1
         }
         
-        echo "Checking kustomization.yaml..."
+        Write-Output "Checking kustomization.yaml..."
         if (Test-Path k8s/kustomization.yaml) {
           Get-Content k8s/kustomization.yaml
         } else {
-          echo "kustomization.yaml not found!"
+          Write-Output "kustomization.yaml not found!"
           exit 1
         }
         
     - name: Deploy to Minikube using Kustomize
+      shell: pwsh
       run: |
-        echo "Deploying application to Minikube using Kustomize..."
+        Write-Output "Deploying application to Minikube using Kustomize..."
         kubectl apply -k k8s/
         
     - name: Wait for deployments to be ready
+      shell: pwsh
       run: |
-        echo "Waiting for deployments to be ready..."
-        kubectl -n ums-system wait --for=condition=available deployment/ums-backend --timeout=180s || echo "Backend deployment not ready"
-        kubectl -n ums-system wait --for=condition=available deployment/ums-frontend --timeout=180s || echo "Frontend deployment not ready"
-        kubectl -n ums-system wait --for=condition=available deployment/mongodb --timeout=180s || echo "MongoDB deployment not ready"
+        Write-Output "Waiting for deployments to be ready..."
+        try {
+          kubectl -n ums-system wait --for=condition=available deployment/ums-backend --timeout=180s
+        } catch {
+          Write-Output "Backend deployment not ready"
+        }
+        
+        try {
+          kubectl -n ums-system wait --for=condition=available deployment/ums-frontend --timeout=180s
+        } catch {
+          Write-Output "Frontend deployment not ready"
+        }
+        
+        try {
+          kubectl -n ums-system wait --for=condition=available deployment/mongodb --timeout=180s
+        } catch {
+          Write-Output "MongoDB deployment not ready"
+        }
         
     - name: Show deployed resources
+      shell: pwsh
       run: |
-        echo "Listing all resources in the ums-system namespace:"
+        Write-Output "Listing all resources in the ums-system namespace:"
         kubectl get all -n ums-system
         
-        echo "Checking pod logs for any issues:"
-        kubectl -n ums-system get pods -o name | ForEach-Object {
-          echo "==== Logs for $_ ===="
-          kubectl -n ums-system logs $_ --tail 50
+        Write-Output "Checking pod logs for any issues:"
+        $pods = kubectl -n ums-system get pods -o name
+        foreach ($pod in $pods) {
+          Write-Output "==== Logs for $pod ===="
+          kubectl -n ums-system logs $pod --tail 50
         }
         
     - name: Display service URL
+      shell: pwsh
       run: |
-        echo "Frontend service is accessible at:"
+        Write-Output "Frontend service is accessible at:"
         minikube service ums-frontend -n ums-system --url
